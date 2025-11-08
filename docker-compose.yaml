@@ -1,0 +1,25 @@
+services:
+  db:
+    image: mariadb:11.3.2
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_DATABASE: mylibrary
+    ports:
+      - "3306:3306"
+
+  phpmyadmin:
+    image: phpmyadmin
+    restart: always
+    ports:
+      - 8081:80
+
+  rabbitmq:
+      image: rabbitmq:3.13.0-management
+      environment:
+        RABBITMQ_DEFAULT_USER: guest
+        RABBITMQ_DEFAULT_PASS: guest
+      ports:
+        - "5672:5672"
+        - "15672:15672"

@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: library
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    password: root
+    url: jdbc:mariadb://localhost:3306/mylibrary
+    username: root
+  jpa:
+    hibernate:
+      ddl-auto: update
+  rabbitmq:
+    host: localhost
+    username: guest
+    password: guest
+    port: 5672
