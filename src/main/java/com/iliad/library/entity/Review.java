@@ -1,24 +1,18 @@
 package com.iliad.library.entity;
 
-import jakarta.persistence.*;
 import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 
-@Entity
-@Table(name = "review")
+@Table(name = "Review")
 @Data
 public class Review {
 
     @Id
-    //@GeneratedValue(strategy=GenerationType.IDENTITY)
     private Long id;
 
-    //private Long bookId;
-
+    private Long bookId;
     private String review;
     private int score;
     private String status;
-
-    @ManyToOne
-    @JoinColumn(name = "book_id", nullable = false)
-    private Book book;
 }

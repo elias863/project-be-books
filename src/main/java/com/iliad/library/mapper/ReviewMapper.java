@@ -9,15 +9,11 @@ import org.springframework.stereotype.Component;
 @AllArgsConstructor
 public class ReviewMapper {
 
-    private final BookMapper bookMapper;
-
     public Review toEntity(ReviewDTO dto){
         Review entity = new Review();
-        //entity.setBookId(dto.getId());
-        entity.setId(dto.getId());
+        entity.setBookId(dto.getId());
         entity.setReview(dto.getReview());
         entity.setScore(dto.getScore());
-//        entity.setBook(bookMapper.toEntity(dto.getBook()));
         return entity;
     }
 

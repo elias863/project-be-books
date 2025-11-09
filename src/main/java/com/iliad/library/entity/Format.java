@@ -1,16 +1,15 @@
 package com.iliad.library.entity;
 
-import jakarta.persistence.*;
 import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 
-@Entity
-@Table(name = "format")
+@Table(name = "Format")
 @Data
 public class Format {
 
     @Id
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
-    private Long formatId;
+    private Long id;
 
     private String textHtml;
     private String applicationEpubZip;

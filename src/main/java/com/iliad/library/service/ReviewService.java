@@ -3,16 +3,21 @@ package com.iliad.library.service;
 import com.iliad.library.config.RabbitMQConfig;
 import com.iliad.library.dto.ReviewDTO;
 import com.iliad.library.entity.Book;
+import com.iliad.library.entity.Format;
+import com.iliad.library.entity.Person;
 import com.iliad.library.entity.Review;
 import com.iliad.library.mapper.ReviewMapper;
-import com.iliad.library.repository.BookRepository;
-import com.iliad.library.repository.DatabaseUpdate;
-import com.iliad.library.repository.ReviewRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,71 +25,186 @@ import java.util.List;
 @AllArgsConstructor
 public class ReviewService {
 
-    private final ReviewRepository reviewRepository;
     private final ReviewMapper reviewMapper;
     private final BookService bookService;
     private final RabbitTemplate rabbitTemplate;
-    private final BookRepository bookRepository;
-    private final DatabaseUpdate databaseUpdate;
+    private static Long lastBookId = 0l;
 
-    public ReviewDTO createReview(Review review) throws Exception {
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public ReviewDTO createReview(ReviewDTO reviewDTO) throws Exception {
+
+        // prendo il libro a cui si riferisce la review
+        Book reviewbook = bookService.getBookById(reviewDTO.getId());
 
         // controllo che l'id matchi con l'API
-        if(bookService.getBookById(review.getId()).getId()==null)
-            throw new Exception("Non esiste un libro con id: "+review.getId());
+        if(reviewbook.getId()==null)
+            throw new Exception("Non esiste un libro con id: "+reviewDTO.getId());
 
         // controllo che la review sia di almeno 30 caratteri
-        if(review.getReview().length() < 30)
+        if(reviewDTO.getReview().length() < 30)
             throw new Exception("La review deve essere di almeno 30 caratteri!");
 
         // controllo che lo score sia compreso tra 0 e 10
-        if(review.getScore()<0 || review.getScore() > 10)
+        if(reviewDTO.getScore()<0 || reviewDTO.getScore() > 10)
             throw new Exception("Lo score deve essere compreso tra 0 e 10!");
 
-        // Setto lo status temporaneamente in PENDING
-        Review saved = review;
-        saved.setId(review.getId());
-        saved.setReview(review.getReview());
-        saved.setScore(review.getScore());
+        // Creo la review "di base" (senza arricchimento)
+        Review saved = new Review();
+        saved.setBookId(reviewDTO.getId());
+        saved.setReview(reviewDTO.getReview());
+        saved.setScore(reviewDTO.getScore());
         saved.setStatus("PENDING"); // Setto temporaneamente lo stato su PENDING --> diventerà COMPLETED quando arricchirò i dati accodati con RabbitMQ
 
-        // prelevo il libro della review (con tutti i dati per l'arricchimento)
-        Book reviewBook = bookService.getBookById(review.getId());
-        List<Review> bookReviewList = new ArrayList<>(0);
-        bookReviewList.add(saved);
-        reviewBook.setReviews(bookReviewList);
+        // aggiungo la review al libro a cui si riferisce
+        List<Review> newReviewList = null;
+        if(reviewbook.getReviews() == null)
+            newReviewList = new ArrayList<>(0);
 
-        // cambio la codifica della tabella Book perchè dava un errore: java.sql.SQLSyntaxErrorException: (conn=3) Incorrect string value: '\xAC\xED\x00\x05sr...' for column `mylibrary`.`books`.`summaries` at row 1
-        // SOLUZIONE: https://stackoverflow.com/questions/2687164/mysql-utf-encoding
-        Book b = new Book();
-        b.setId(0l);
-        bookRepository.save(b);    // salvo un libro per creare la tabella
+        newReviewList.add(saved);
 
-        //bookRepository.changeEncoding();    // cambio la codifica
-        databaseUpdate.alterMyTableAddMyColumn();
+        reviewbook.setReviews(newReviewList);
 
-        // salvo il libro
-        bookRepository.save(reviewBook);
+        // Guardo sul db se esiste già il libro a cui voglio fare la recensione
+        List<Review> reviews = new ArrayList<>(0);
+        String sql = "SELECT * FROM Book,Review WHERE Book.id=Review.book_id AND Review.bookId = "+saved.getBookId();
+        reviews = jdbcTemplate.query(sql,new BeanPropertyRowMapper(Review.class));
 
-        // salvo la review semplice
-        reviewRepository.save(saved);  // salvo la review (senza l'arricchimento)
+        // se il libro esiste già...
+        if(!reviews.isEmpty()){ // aggiorno soltanto il campo STATUS (gli altri dati di arricchimento per questo libro sono già presenti)
+            Long lastBookIdSaved = reviews.get(reviews.size()-1).getBookId();
 
-        // recupero la review salvata dal db (per "pulizia")
-        saved = reviewRepository.getReferenceById(review.getId());
-        saved.setBook(reviewBook); // aggiungo il riferimento al libro
+            // inserisco soltanto la review con il riferimento (lastBookIdSaved) al libro già esistente
+            sql = "INSERT INTO Review (bookId, review, score, status, book_id) VALUES (?,?,?,?,?)";
+            jdbcTemplate.update(sql, saved.getBookId(), saved.getReview(), saved.getScore(), "COMPLETED",lastBookIdSaved);
+        }
+        else    // altrimenti salvo tutti i dati di arricchimento (Book ecc.) in modo asincrono con RabbitMQ
+            rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY, reviewbook);
 
-        // invio la review arricchita alla coda di RabbitMQ
-        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY, saved);
-
-        return reviewMapper.toDto(review);
+        return reviewMapper.toDto(saved);
     }
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_NAME)
-    public void receiveMessage(Review review) {
+    public void receiveMessage(Book reviewbook) {
 
-        // imposto lo stato a COMPLETED
-        review.setStatus("COMPLETED");
-        // Salvo il libro inerente alla review attuale
-        reviewRepository.save(review);
+        // Creo il libro (necessario per creare la Review)
+        String sql = "INSERT INTO Book (title, copyright, mediaType, " +
+                "downloadCount) VALUES (?,?,?,?)";
+        jdbcTemplate.update(sql, reviewbook.getTitle(), reviewbook.getCopyright(),
+                reviewbook.getMediaType(), reviewbook.getDownloadCount()
+        );
+
+        // 0ttengo l'id del libro appena inserito
+        lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+
+        // Inserimento formats relativi al Book
+        Format formats = reviewbook.getFormats();
+        sql = "INSERT INTO Format (textHtml, applicationEpubZip, applicationMobiPocket" +
+                ", textPlainAscii, textPlainUtf8, textHtmlCharsetUtf8, applicationRdfXml" +
+                ", imageJpeg, applicationOctetStream, downloadCount, book_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+        jdbcTemplate.update(sql, formats.getTextHtml(), formats.getApplicationEpubZip(), formats.getApplicationMobiPocket(),
+                formats.getTextPlainAscii(), formats.getTextPlainUtf8(), formats.getTextHtmlCharsetUtf8(),
+                formats.getApplicationRdfXml(), formats.getImageJpeg(), formats.getApplicationOctetStream()
+                ,formats.getDownloadCount(), lastBookId);
+
+        // Inserimento authors
+        List<Person> authors = reviewbook.getAuthors();
+        for(Person a:authors){
+            sql = "INSERT INTO Author (name, birthYear, deathYear) VALUES (?,?,?)";
+            jdbcTemplate.update(sql,a.getName(), a.getBirthYear(), a.getDeathYear());
+            Long lastAuthorId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+
+            // Aggiungo i riferimenti nella tabella BookAuthor
+            sql = "INSERT INTO BookAuthor (book_id, author_id) VALUES (?,?)";
+            jdbcTemplate.update(sql, lastBookId, lastAuthorId);
+        }
+
+        // Inserimento summaries
+        List<String> summaries = reviewbook.getSummaries();
+        sql = "INSERT INTO Summary (summary, book_id) VALUES (?,?)";
+        jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+            @Override
+            public void setValues(PreparedStatement ps, int i) throws SQLException {
+                String summary = summaries.get(i);
+                ps.setString(1, summary);
+                ps.setLong(2, lastBookId);          // --> DA SISTEMARE COME L'ALTRO
+            }
+
+            @Override
+            public int getBatchSize() {
+                return summaries.size();
+            }
+        });
+
+        // Inserimento editors
+        List<String> editors = reviewbook.getEditors();
+        for(String e:editors){
+            sql = "INSERT INTO Editor (editor) VALUES (?)";
+            jdbcTemplate.update(sql,e);
+            Long lastEditorId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+
+            // Aggiungo i riferimenti nella tabella BookAuthor
+            sql = "INSERT INTO BookEditor (book_id, editor_id) VALUES (?,?)";
+            jdbcTemplate.update(sql, lastBookId, lastEditorId);
+        }
+
+        // Inserimento translators
+        List<Person> translators = reviewbook.getTranslators();
+        for(Person a:translators){
+            sql = "INSERT INTO Translator (name, birthYear, deathYear) VALUES (?,?,?)";
+            jdbcTemplate.update(sql,a.getName(), a.getBirthYear(), a.getDeathYear());
+            Long lastAuthorId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+
+            // Aggiungo i riferimenti nella tabella BookAuthor
+            sql = "INSERT INTO BookTranslator (book_id, translator_id) VALUES (?,?)";
+            jdbcTemplate.update(sql, lastBookId, lastAuthorId);
+        }
+
+        //  Inserimento subjects
+        List<String> subjects = reviewbook.getSubjects();
+        sql = "INSERT INTO Subject (subject, book_id) VALUES (?,?)";
+        jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+            @Override
+            public void setValues(PreparedStatement ps, int i) throws SQLException {
+                String subject = subjects.get(i);
+                ps.setString(1, subject);
+                ps.setLong(2, lastBookId);
+            }
+
+            @Override
+            public int getBatchSize() {
+                return subjects.size();
+            }
+        });
+
+        // Inserimento bookshelves
+        List<String> bookshelves = reviewbook.getBookshelves();
+        for(String b:bookshelves){
+            sql = "INSERT INTO Bookshelf (bookshelf) VALUES (?)";
+            jdbcTemplate.update(sql,b);
+            Long lastBookShelfId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+
+            // Aggiungo i riferimenti nella tabella BookAuthor
+            sql = "INSERT INTO BookBookshelf (book_id, bookshelf_id) VALUES (?,?)";
+            jdbcTemplate.update(sql, lastBookId, lastBookShelfId);
+        }
+
+        // Inserimento languages
+        List<String> languages = reviewbook.getLanguages();
+        for(String l:languages){
+            sql = "INSERT INTO Language (language) VALUES (?)";
+            jdbcTemplate.update(sql,l);
+            Long lastLanguageId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+
+            // Aggiungo i riferimenti nella tabella BookAuthor
+            sql = "INSERT INTO BookLanguage (book_id, language_id) VALUES (?,?)";
+            jdbcTemplate.update(sql, lastBookId, lastLanguageId);
+        }
+
+        // salvo la review con il campo status=COMPLETED
+        Review lastReview = reviewbook.getReviews().get(reviewbook.getReviews().size()-1);
+        sql = "INSERT INTO Review (bookId, review, score, status, book_id) VALUES (?,?,?,?,?)";
+        jdbcTemplate.update(sql, lastReview.getBookId(), lastReview.getReview(), lastReview.getScore(), "COMPLETED",lastBookId);
     }
 }

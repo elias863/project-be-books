@@ -38,8 +38,9 @@ public class BookService {
         ObjectMapper mapper = new ObjectMapper();
         BookDTO bookDTO  = mapper.readValue(jsonResponse, BookDTO.class);
 
+        // Se non trova nessun libro con quell'id restituisce un oggetto vuoto
         if(bookDTO == null)
-            throw new Exception("Nessun libro con id: "+id);
+            return new Book();
 
         return bookMapper.toEntity(bookDTO);
     }

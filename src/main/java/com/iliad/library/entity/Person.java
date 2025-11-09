@@ -1,16 +1,15 @@
 package com.iliad.library.entity;
 
-import jakarta.persistence.*;
 import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 
 @Data
-@Entity
-@Table(name = "people")
+@Table(name = "Person")
 public class Person {
 
     @Id
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
-    private Long personId;
+    private Long id;
 
     private String name;
     private int birthYear;

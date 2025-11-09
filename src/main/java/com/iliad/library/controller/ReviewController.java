@@ -19,6 +19,6 @@ public class ReviewController {
 
     @PostMapping
     public ReviewDTO createReview(@RequestBody ReviewDTO review) throws Exception {
-        return reviewService.createReview(reviewMapper.toEntity(review));
+        return reviewService.createReview(review);
     }
 }
