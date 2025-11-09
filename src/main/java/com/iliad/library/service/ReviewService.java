@@ -1,6 +1,8 @@
 package com.iliad.library.service;
 
 import com.iliad.library.config.RabbitMQConfig;
+import com.iliad.library.config.RabbitMQGetReviewConfig;
+import com.iliad.library.controller.ReviewController;
 import com.iliad.library.dto.ReviewDTO;
 import com.iliad.library.entity.Book;
 import com.iliad.library.entity.Format;
@@ -86,7 +88,7 @@ public class ReviewService {
     }
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_NAME)
-    public void receiveMessage(Book reviewbook) {
+    public void reviewBookInsertReview(Book reviewbook) {
 
         // Creo il libro (necessario per creare la Review)
         String sql = "INSERT INTO Book (title, copyright, mediaType, " +
@@ -206,5 +208,29 @@ public class ReviewService {
         Review lastReview = reviewbook.getReviews().get(reviewbook.getReviews().size()-1);
         sql = "INSERT INTO Review (bookId, review, score, status, book_id) VALUES (?,?,?,?,?)";
         jdbcTemplate.update(sql, lastReview.getBookId(), lastReview.getReview(), lastReview.getScore(), "COMPLETED",lastBookId);
+    }
+
+    // Ottengo tutte le review di un dato BookId preso in input
+    public List<ReviewDTO> getReview(Long id) throws Exception {
+        List<Review> reviews = new ArrayList<>(0);
+        String sql = "SELECT * FROM Review WHERE bookId = "+id;
+        reviews = jdbcTemplate.query(sql,new BeanPropertyRowMapper(Review.class));
+
+        // mappo a DTO tutte le Review prima di passarle al Controller
+        List<ReviewDTO> dtoList = new ArrayList<>(0);
+        for(Review r:reviews){
+            dtoList.add(reviewMapper.toDto(r));
+        }
+
+        // L'arricchimento della review è uguale per tutte dato che si riferiscono allo stesso libro
+        Book enrichedData = bookService.getBookById(id);
+        rabbitTemplate.convertAndSend(RabbitMQGetReviewConfig.EXCHANGE_NAME, RabbitMQGetReviewConfig.ROUTING_KEY, enrichedData);
+
+        return dtoList;
+    }
+
+    @RabbitListener(queues = RabbitMQGetReviewConfig.QUEUE_NAME)
+    public void reviewBookGetReview(Book enrichedData) {
+        // non so come restituire i dati arrichiti al controller
     }
 }
