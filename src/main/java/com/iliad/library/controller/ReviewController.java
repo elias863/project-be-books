@@ -1,5 +1,6 @@
 package com.iliad.library.controller;
 
+import com.iliad.library.dto.BookDTO;
 import com.iliad.library.dto.ReviewDTO;
 import com.iliad.library.mapper.ReviewMapper;
 import com.iliad.library.service.ReviewService;
@@ -21,19 +22,18 @@ public class ReviewController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ReviewDTO> getReview(@RequestParam Long id) throws Exception {
-        ReviewDTO review = reviewService.getReview(id);
+    public ResponseEntity<BookDTO> getReview(@PathVariable Long id){
 
-        // se la rewiew è in PENDING restituisco 202
-        if(review.getStatus().equals("PENDING"))
-            return ResponseEntity.status(202).body(review);
+        // review contiene la Review presa dal DB, se non esiste restituisce 404
+        BookDTO bookWithReview;
+        try{
+            bookWithReview = reviewService.getReview(id);
+        }
+        catch (Exception e){
+            return ResponseEntity.status(404).build();
+        }
 
-        // se è in COMPLETED resituisco 200
-        if(review.getStatus().equals("COMPLETED"))
-            return ResponseEntity.status(200).body(review);
-        else
-            return ResponseEntity.notFound().build();
-
+        return ResponseEntity.status(200).body(bookWithReview);
     }
 
     @DeleteMapping("/{id}")

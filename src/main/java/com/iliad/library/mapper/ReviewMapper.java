@@ -2,11 +2,9 @@ package com.iliad.library.mapper;
 
 import com.iliad.library.dto.ReviewDTO;
 import com.iliad.library.entity.Review;
-import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
-@AllArgsConstructor
 public class ReviewMapper {
 
     public Review toEntity(ReviewDTO dto){
@@ -22,6 +20,7 @@ public class ReviewMapper {
         dto.setId(entity.getId());
         dto.setReview(entity.getReview());
         dto.setScore(entity.getScore());
+        dto.setStatus(entity.getStatus());
         return dto;
     }
 }

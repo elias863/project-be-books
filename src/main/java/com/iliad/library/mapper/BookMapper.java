@@ -7,16 +7,20 @@ import com.iliad.library.entity.Book;
 import com.iliad.library.entity.Person;
 import com.iliad.library.entity.Review;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Component
 @AllArgsConstructor
 public class BookMapper {
 
     private final FormatMapper formatMapper;
+    private final PersonMapper personMapper;
+    private final ReviewMapper reviewMapper;
 
     public Book toEntity(BookDTO dto){
         Book entity = new Book();
@@ -87,11 +91,53 @@ public class BookMapper {
         return entity;
     }
 
-    public ReviewDTO toDto(Review entity){
-        ReviewDTO dto = new ReviewDTO();
+    public BookDTO toDto(Book entity){
+        BookDTO dto = new BookDTO();
         dto.setId(entity.getId());
-        dto.setReview(entity.getReview());
-        dto.setScore(entity.getScore());
+
+        // mappo gli editors
+        List<PersonDTO> editors = new ArrayList<>(0);
+        for(Person p:entity.getEditors()){
+            PersonDTO personDTO = personMapper.toDto(p);
+            editors.add(personDTO);
+        }
+        dto.setEditors(dto.getEditors());   // li aggiungo all'entity
+
+        // mappo gli authors
+        List<PersonDTO> authors = new ArrayList<>(0);
+        for(Person p:entity.getAuthors()){
+            PersonDTO personDTO = personMapper.toDto(p);
+            authors.add(personDTO);
+        }
+        dto.setAuthors(authors);
+
+        // mappo i summaries
+        dto.setSummaries(entity.getSummaries());
+
+        // mappo i translators
+        List<PersonDTO> translators = new ArrayList<>(0);
+        for(Person p:entity.getTranslators()){
+            PersonDTO personDTO = personMapper.toDto(p);
+            translators.add(personDTO);
+        }
+        dto.setTranslators(translators);
+
+        dto.setSubjects(entity.getSubjects());
+        dto.setBookshelves(entity.getBookshelves());
+        dto.setLanguages(entity.getLanguages());
+        dto.setCopyright(entity.getCopyright());
+        dto.setMediaType(entity.getMediaType());
+        dto.setFormats(formatMapper.toDto(entity.getFormats()));
+        dto.setDownloadCount(entity.getDownloadCount());
+
+        // mappo le Reviews
+        List<ReviewDTO> reviews = new ArrayList<>(0);
+        for(Review r:entity.getReviews()){
+            ReviewDTO reviewDTO = reviewMapper.toDto(r);
+            reviews.add(reviewDTO);
+        }
+        dto.setReviews(reviews);
+
         return dto;
     }
 }

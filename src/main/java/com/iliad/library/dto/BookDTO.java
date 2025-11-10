@@ -24,4 +24,6 @@ public class BookDTO {
 
     @JsonProperty("download_count")
     private int downloadCount;
+
+    private List<ReviewDTO> reviews;
 }

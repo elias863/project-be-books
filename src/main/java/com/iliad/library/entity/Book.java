@@ -1,6 +1,5 @@
 package com.iliad.library.entity;
 
-import com.iliad.library.dto.PersonDTO;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;

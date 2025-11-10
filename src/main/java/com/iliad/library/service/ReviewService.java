@@ -1,16 +1,18 @@
 package com.iliad.library.service;
 
 import com.iliad.library.config.RabbitMQConfig;
+import com.iliad.library.dto.BookDTO;
 import com.iliad.library.dto.ReviewDTO;
 import com.iliad.library.entity.Book;
 import com.iliad.library.entity.Format;
 import com.iliad.library.entity.Person;
 import com.iliad.library.entity.Review;
+import com.iliad.library.exception.NotExistingReviewException;
+import com.iliad.library.mapper.BookMapper;
 import com.iliad.library.mapper.ReviewMapper;
 import lombok.AllArgsConstructor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -29,9 +31,8 @@ public class ReviewService {
     private final BookService bookService;
     private final RabbitTemplate rabbitTemplate;
     private static Long lastBookId = 0l;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private final BookMapper bookMapper;
+    private final JdbcTemplate jdbcTemplate;
 
     public ReviewDTO createReview(ReviewDTO reviewDTO) throws Exception {
 
@@ -209,28 +210,31 @@ public class ReviewService {
     }
 
     // Ottengo tutte le review di un dato BookId preso in input
-    public ReviewDTO getReview(Long id) throws Exception {
+    public BookDTO getReview(Long id) throws Exception {
 
         // Prelevo la Review (semplice)
         String sql = "SELECT * FROM Review WHERE id = "+id;
-        Review review = (Review) jdbcTemplate.queryForObject(
-                sql,
-                new Object[]{id},
-                new BeanPropertyRowMapper(Review.class));
-
-
-
-        // mappo a DTO tutte le Review prima di passarle al Controller
-//        List<ReviewDTO> dtoList = new ArrayList<>(0);
-//        for(Review r:reviews){
-//            dtoList.add(reviewMapper.toDto(r));
-//        }
+        Review fromDB = new Review();
+        try{
+            fromDB = (Review) jdbcTemplate.queryForObject(
+                    sql,
+                    new Object[]{id},
+                    new BeanPropertyRowMapper(Review.class));
+        }
+        catch (Exception e){
+            throw new NotExistingReviewException();  // rimanda l'eccezione al controller (che la gestisce)
+        }
 
         // L'arricchimento della review è uguale per tutte dato che si riferiscono allo stesso libro
         Book enrichedData = bookService.getBookById(id);
-        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY, enrichedData);
 
-        return new ReviewDTO();
+        // mappo a DTO tutte le Review prima di passarle al Controller
+        List<Review> newReviewList = new ArrayList<>();
+        newReviewList.add(fromDB);
+
+        enrichedData.setReviews(newReviewList);
+
+        return bookMapper.toDto(enrichedData);
     }
 
     public void deleteReview(Long id) {
@@ -242,9 +246,4 @@ public class ReviewService {
         String sql = "UPDATE Review SET review = ?, score = ? WHERE id = ?";
         jdbcTemplate.update(sql, review.getReview(), review.getScore(), review.getBookId());
     }
-
-    /*@RabbitListener(queues = RabbitMQGetReviewConfig.QUEUE_NAME)
-    public void reviewBookGetReview(Book enrichedData) {
-        // non so come restituire i dati arrichiti al controller
-    }*/
 }
