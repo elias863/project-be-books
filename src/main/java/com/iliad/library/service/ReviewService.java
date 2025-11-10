@@ -1,7 +1,8 @@
 package com.iliad.library.service;
 
 import com.iliad.library.config.RabbitMQConfig;
-import com.iliad.library.dto.BookDTO;
+import com.iliad.library.dto.BookDTOReview;
+import com.iliad.library.dto.PersonDTO;
 import com.iliad.library.dto.ReviewDTO;
 import com.iliad.library.entity.Book;
 import com.iliad.library.entity.Format;
@@ -9,6 +10,8 @@ import com.iliad.library.entity.Person;
 import com.iliad.library.entity.Review;
 import com.iliad.library.exception.NotExistingReviewException;
 import com.iliad.library.mapper.BookMapper;
+import com.iliad.library.mapper.FormatMapper;
+import com.iliad.library.mapper.PersonMapper;
 import com.iliad.library.mapper.ReviewMapper;
 import lombok.AllArgsConstructor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -33,6 +36,8 @@ public class ReviewService {
     private static Long lastBookId = 0l;
     private final BookMapper bookMapper;
     private final JdbcTemplate jdbcTemplate;
+    private final PersonMapper personMapper;
+    private final FormatMapper formatMapper;
 
     public ReviewDTO createReview(ReviewDTO reviewDTO) throws Exception {
 
@@ -210,7 +215,7 @@ public class ReviewService {
     }
 
     // Ottengo tutte le review di un dato BookId preso in input
-    public BookDTO getReview(Long id) throws Exception {
+    public BookDTOReview getReview(Long id) throws Exception {
 
         // Prelevo la Review (semplice)
         String sql = "SELECT * FROM Review WHERE id = "+id;
@@ -226,7 +231,7 @@ public class ReviewService {
         }
 
         // L'arricchimento della review è uguale per tutte dato che si riferiscono allo stesso libro
-        Book enrichedData = bookService.getBookById(id);
+        Book enrichedData = bookService.getBookById(fromDB.getBookId());
 
         // mappo a DTO tutte le Review prima di passarle al Controller
         List<Review> newReviewList = new ArrayList<>();
@@ -234,7 +239,56 @@ public class ReviewService {
 
         enrichedData.setReviews(newReviewList);
 
-        return bookMapper.toDto(enrichedData);
+        // mappo il book con bookDTOReview (la review con l'arricchimento dati del Book con i soli campi interessanti per l'output)
+        BookDTOReview bookDTOReview = new BookDTOReview();
+
+        // mappo le Review in ReviewDTO
+        List<ReviewDTO> reviewDTOS = new ArrayList<>(0);
+        for(Review r:enrichedData.getReviews()){
+            ReviewDTO reviewDTO = reviewMapper.toDto(r);
+            reviewDTOS.add(reviewDTO);
+        }
+
+        // continuo il mapping per l'output...
+        bookDTOReview.setReviews(reviewDTOS);
+        bookDTOReview.setTitle(enrichedData.getTitle());
+
+        // mappo gli authors
+        List<PersonDTO> authors = new ArrayList<>(0);
+        for(Person p:enrichedData.getAuthors()){
+            PersonDTO author = personMapper.toDto(p);
+            authors.add(author);
+        }
+
+        bookDTOReview.setAuthors(authors);
+        bookDTOReview.setSummaries(enrichedData.getSummaries());
+
+        // mappo gli editors
+        List<PersonDTO> editors = new ArrayList<>(0);
+        for(Person p:enrichedData.getEditors()){
+            PersonDTO editor = personMapper.toDto(p);
+            editors.add(editor);
+        }
+
+        bookDTOReview.setEditors(editors);
+
+        // mappoo i translators
+        List<PersonDTO> translators = new ArrayList<>(0);
+        for(Person p:enrichedData.getTranslators()){
+            PersonDTO translator = personMapper.toDto(p);
+            translators.add(translator);
+        }
+
+        bookDTOReview.setTranslators(translators);
+        bookDTOReview.setSubjects(enrichedData.getSubjects());
+        bookDTOReview.setBookshelves(enrichedData.getBookshelves());
+        bookDTOReview.setLanguages(enrichedData.getLanguages());
+        bookDTOReview.setCopyright(enrichedData.getCopyright());
+        bookDTOReview.setFormats(formatMapper.toDto(enrichedData.getFormats()));
+        bookDTOReview.setMediaType(enrichedData.getMediaType());
+        bookDTOReview.setDownloadCount(enrichedData.getDownloadCount());
+
+        return bookDTOReview;
     }
 
     public void deleteReview(Long id) {

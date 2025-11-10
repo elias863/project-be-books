@@ -1,6 +1,7 @@
 package com.iliad.library.controller;
 
 import com.iliad.library.dto.BookDTO;
+import com.iliad.library.dto.BookDTOReview;
 import com.iliad.library.dto.ReviewDTO;
 import com.iliad.library.mapper.ReviewMapper;
 import com.iliad.library.service.ReviewService;
@@ -22,10 +23,10 @@ public class ReviewController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<BookDTO> getReview(@PathVariable Long id){
+    public ResponseEntity<BookDTOReview> getReview(@PathVariable Long id){
 
         // review contiene la Review presa dal DB, se non esiste restituisce 404
-        BookDTO bookWithReview;
+        BookDTOReview bookWithReview;
         try{
             bookWithReview = reviewService.getReview(id);
         }
