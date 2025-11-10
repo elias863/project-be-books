@@ -1,6 +1,5 @@
 package com.iliad.library.controller;
 
-import com.iliad.library.dto.BookDTO;
 import com.iliad.library.dto.BookDTOReview;
 import com.iliad.library.dto.ReviewDTO;
 import com.iliad.library.mapper.ReviewMapper;
