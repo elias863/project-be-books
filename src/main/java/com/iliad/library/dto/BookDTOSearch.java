@@ -6,7 +6,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class BookDTO {
+public class BookDTOSearch {
     private Long id;
     private String title;
     private List<PersonDTO> authors;
@@ -15,13 +15,8 @@ public class BookDTO {
     private List<PersonDTO> translators;
     private List<String> subjects;
     private List<String> bookshelves;
-    private List<String> languages;
-    private Boolean copyright;
 
     @JsonProperty("media_type")
     private String mediaType;
     private FormatDTO formats;
-
-    @JsonProperty("download_count")
-    private int downloadCount;
 }

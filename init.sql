@@ -103,20 +103,22 @@ CREATE TABLE IF NOT EXISTS Review(
     score INT NOT NULL,
     status VARCHAR(50),
     book_id INT,
-    CONSTRAINT fk_Book_Review FOREIGN KEY (book_id) REFERENCES Book(id) ON DELETE CASCADE
+    CONSTRAINT fk_Book_Review FOREIGN KEY (book_id) REFERENCES Book(id)
 );
 CREATE TABLE IF NOT EXISTS Editor(
     id INT AUTO_INCREMENT PRIMARY KEY,
-    editor VARCHAR(255) NOT NULL
+    name VARCHAR(255) NOT NULL,
+    birthyear INT NOT NULL,
+    deathyear INT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS BookEditor(   -- tabella per collegare Book con Editor
+CREATE TABLE IF NOT EXISTS BookEditor(
     book_id INT,
     editor_id INT,
     PRIMARY KEY(book_id,editor_id),
-        CONSTRAINT Constr_BookEditor_Book_fk
-            FOREIGN KEY Book_BookEditor_fk(book_id)
-            REFERENCES Book (id) ON DELETE CASCADE ON UPDATE CASCADE,
-        CONSTRAINT Constr_BookEditor_Editor_fk
-            FOREIGN KEY Editor_BookEditor_fk(editor_id)
-            REFERENCES Editor (id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT Constr_BookEditor_Book_fk
+        FOREIGN KEY Book_BookEditor_fk(book_id)
+        REFERENCES Book (id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT Constr_BookEditor_Editor_fk
+        FOREIGN KEY Editor_BookEditor_fk(editor_id)
+        REFERENCES Editor (id) ON DELETE CASCADE ON UPDATE CASCADE
 );

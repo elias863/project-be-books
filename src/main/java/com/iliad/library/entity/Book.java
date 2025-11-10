@@ -1,5 +1,6 @@
 package com.iliad.library.entity;
 
+import com.iliad.library.dto.PersonDTO;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
@@ -16,7 +17,7 @@ public class Book {
     private String title;
     private List<Person> authors;
     private List<String> summaries;
-    private List<String> editors;
+    private List<Person> editors;
     private List<Person> translators;
     private List<String> subjects;
     private List<String> bookshelves;

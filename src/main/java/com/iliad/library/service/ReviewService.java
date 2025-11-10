@@ -1,8 +1,6 @@
 package com.iliad.library.service;
 
 import com.iliad.library.config.RabbitMQConfig;
-import com.iliad.library.config.RabbitMQGetReviewConfig;
-import com.iliad.library.controller.ReviewController;
 import com.iliad.library.dto.ReviewDTO;
 import com.iliad.library.entity.Book;
 import com.iliad.library.entity.Format;
@@ -140,8 +138,8 @@ public class ReviewService {
         });
 
         // Inserimento editors
-        List<String> editors = reviewbook.getEditors();
-        for(String e:editors){
+        List<Person> editors = reviewbook.getEditors();
+        for(Person e:editors){
             sql = "INSERT INTO Editor (editor) VALUES (?)";
             jdbcTemplate.update(sql,e);
             Long lastEditorId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
@@ -211,26 +209,42 @@ public class ReviewService {
     }
 
     // Ottengo tutte le review di un dato BookId preso in input
-    public List<ReviewDTO> getReview(Long id) throws Exception {
-        List<Review> reviews = new ArrayList<>(0);
-        String sql = "SELECT * FROM Review WHERE bookId = "+id;
-        reviews = jdbcTemplate.query(sql,new BeanPropertyRowMapper(Review.class));
+    public ReviewDTO getReview(Long id) throws Exception {
+
+        // Prelevo la Review (semplice)
+        String sql = "SELECT * FROM Review WHERE id = "+id;
+        Review review = (Review) jdbcTemplate.queryForObject(
+                sql,
+                new Object[]{id},
+                new BeanPropertyRowMapper(Review.class));
+
+
 
         // mappo a DTO tutte le Review prima di passarle al Controller
-        List<ReviewDTO> dtoList = new ArrayList<>(0);
-        for(Review r:reviews){
-            dtoList.add(reviewMapper.toDto(r));
-        }
+//        List<ReviewDTO> dtoList = new ArrayList<>(0);
+//        for(Review r:reviews){
+//            dtoList.add(reviewMapper.toDto(r));
+//        }
 
         // L'arricchimento della review è uguale per tutte dato che si riferiscono allo stesso libro
         Book enrichedData = bookService.getBookById(id);
-        rabbitTemplate.convertAndSend(RabbitMQGetReviewConfig.EXCHANGE_NAME, RabbitMQGetReviewConfig.ROUTING_KEY, enrichedData);
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY, enrichedData);
 
-        return dtoList;
+        return new ReviewDTO();
     }
 
-    @RabbitListener(queues = RabbitMQGetReviewConfig.QUEUE_NAME)
+    public void deleteReview(Long id) {
+        String sql = "DELETE FROM Review WHERE id="+id;
+        jdbcTemplate.update(sql);
+    }
+
+    public void updateReview(Review review) {
+        String sql = "UPDATE Review SET review = ?, score = ? WHERE id = ?";
+        jdbcTemplate.update(sql, review.getReview(), review.getScore(), review.getBookId());
+    }
+
+    /*@RabbitListener(queues = RabbitMQGetReviewConfig.QUEUE_NAME)
     public void reviewBookGetReview(Book enrichedData) {
         // non so come restituire i dati arrichiti al controller
-    }
+    }*/
 }

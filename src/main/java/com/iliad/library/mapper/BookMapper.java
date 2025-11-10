@@ -42,7 +42,15 @@ public class BookMapper {
         entity.setSummaries(dto.getSummaries());
 
         // mappo gli editors
-        entity.setEditors(dto.getEditors());
+        List<Person> editors = new ArrayList<>(0);
+        for(PersonDTO t:dto.getEditors()){
+            Person editor = new Person();
+            editor.setName(t.getName());
+            editor.setBirthYear(t.getBirthYear());
+            editor.setDeathYear(t.getDeathYear());
+            editors.add(editor);
+        }
+        entity.setEditors(editors);
 
         // mappo i translators
         List<Person> translators = new ArrayList<>(0);

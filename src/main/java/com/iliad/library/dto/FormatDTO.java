@@ -35,4 +35,13 @@ public class FormatDTO {
 
     @JsonProperty("download_count")
     private int downloadCount;
+
+    @JsonProperty("application/pdf")
+    private String applicationPdf;
+
+    @JsonProperty("application/msword")
+    private String applicationMsword;
+
+    @JsonProperty("application/prs.tei")
+    private String applicationPrsTei;
 }
