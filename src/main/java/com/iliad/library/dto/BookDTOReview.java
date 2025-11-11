@@ -8,7 +8,7 @@ import java.util.List;
 @Data
 public class BookDTOReview {
 
-    private List<ReviewDTO> reviews;
+    private List<ReviewDTO> review;
 
     private String title;
     private List<PersonDTO> authors;

@@ -259,7 +259,7 @@ public class ReviewService {
         }
 
         // continuo il mapping per l'output...
-        bookDTOReview.setReviews(reviewDTOS);
+        bookDTOReview.setReview(reviewDTOS);
         bookDTOReview.setTitle(enrichedData.getTitle());
 
         // mappo gli authors
