@@ -84,9 +84,33 @@ public class ReviewService {
             // inserisco soltanto la review con il riferimento (lastBookIdSaved) al libro già esistente
             sql = "INSERT INTO Review (bookId, review, score, status, book_id) VALUES (?,?,?,?,?)";
             jdbcTemplate.update(sql, saved.getBookId(), saved.getReview(), saved.getScore(), "COMPLETED",lastBookIdSaved);
+
+            // 0ttengo l'id della Review appena inserita per restituirlo al controller
+            lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+            saved.setId(lastBookId);
         }
-        else    // altrimenti salvo tutti i dati di arricchimento (Book ecc.) in modo asincrono con RabbitMQ
+        else{   // Altrimenti creo il libro e la Review di base
+            // Creo il libro (necessario per creare la Review)
+            sql = "INSERT INTO Book (title, copyright, mediaType, " +
+                    "downloadCount) VALUES (?,?,?,?)";
+            jdbcTemplate.update(sql, reviewbook.getTitle(), reviewbook.getCopyright(),
+                    reviewbook.getMediaType(), reviewbook.getDownloadCount()
+            );
+
+            // 0ttengo l'id del libro appena inserito
+            lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+
+            // salvo la review con il campo status=COMPLETED
+            Review lastReview = reviewbook.getReviews().get(reviewbook.getReviews().size()-1);
+            sql = "INSERT INTO Review (bookId, review, score, status, book_id) VALUES (?,?,?,?,?)";
+            jdbcTemplate.update(sql, lastReview.getBookId(), lastReview.getReview(), lastReview.getScore(), "COMPLETED",lastBookId);
+
+            // 0ttengo l'id della Review appena inserita per valorizzare l'id della Review da mostrare nella response
+            lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+            saved.setId(lastBookId);
+
             rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY, reviewbook);
+        }
 
         return reviewMapper.toDto(saved);
     }
@@ -94,19 +118,9 @@ public class ReviewService {
     @RabbitListener(queues = RabbitMQConfig.QUEUE_NAME)
     public void reviewBookInsertReview(Book reviewbook) {
 
-        // Creo il libro (necessario per creare la Review)
-        String sql = "INSERT INTO Book (title, copyright, mediaType, " +
-                "downloadCount) VALUES (?,?,?,?)";
-        jdbcTemplate.update(sql, reviewbook.getTitle(), reviewbook.getCopyright(),
-                reviewbook.getMediaType(), reviewbook.getDownloadCount()
-        );
-
-        // 0ttengo l'id del libro appena inserito
-        lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
-
         // Inserimento formats relativi al Book
         Format formats = reviewbook.getFormats();
-        sql = "INSERT INTO Format (textHtml, applicationEpubZip, applicationMobiPocket" +
+        String sql = "INSERT INTO Format (textHtml, applicationEpubZip, applicationMobiPocket" +
                 ", textPlainAscii, textPlainUtf8, textHtmlCharsetUtf8, applicationRdfXml" +
                 ", imageJpeg, applicationOctetStream, downloadCount, book_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
         jdbcTemplate.update(sql, formats.getTextHtml(), formats.getApplicationEpubZip(), formats.getApplicationMobiPocket(),
@@ -207,11 +221,6 @@ public class ReviewService {
             sql = "INSERT INTO BookLanguage (book_id, language_id) VALUES (?,?)";
             jdbcTemplate.update(sql, lastBookId, lastLanguageId);
         }
-
-        // salvo la review con il campo status=COMPLETED
-        Review lastReview = reviewbook.getReviews().get(reviewbook.getReviews().size()-1);
-        sql = "INSERT INTO Review (bookId, review, score, status, book_id) VALUES (?,?,?,?,?)";
-        jdbcTemplate.update(sql, lastReview.getBookId(), lastReview.getReview(), lastReview.getScore(), "COMPLETED",lastBookId);
     }
 
     // Ottengo tutte le review di un dato BookId preso in input
