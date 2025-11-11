@@ -44,4 +44,31 @@ public class FormatDTO {
 
     @JsonProperty("application/prs.tei")
     private String applicationPrsTei;
+
+    @JsonProperty("text/html; charset=us-ascii")
+    private String textHtmlUsAScii;
+
+    @JsonProperty("text/plain")
+    private String textPlain;
+
+    @JsonProperty("text/x-rst")
+    private String textXRst;
+
+    @JsonProperty("text/html; charset=iso-8859-1")
+    private String textHtmlCharsetIso8859;
+
+    @JsonProperty("text/plain; charset=iso-8859-1")
+    private String textPlainCharsetIso8859;
+
+    @JsonProperty("audio/ogg")
+    private String audioOgg;
+
+    @JsonProperty("audio/mp4")
+    private String audioMp4;
+
+    @JsonProperty("audio/mpeg")
+    private String audioMpeg;
+
+    @JsonProperty("application/prs.tex")
+    private String applicationPrsTex;
 }
