@@ -10,6 +10,7 @@ public class BookDTOReview {
 
     private List<ReviewDTO> review;
 
+    private int bookId;
     private String title;
     private List<PersonDTO> authors;
     private List<String> summaries;

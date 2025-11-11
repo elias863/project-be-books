@@ -12,7 +12,7 @@ public class Book {
 
     @Id
     private Long id;
-
+    private int bookId;
     private String title;
     private List<Person> authors;
     private List<String> summaries;

@@ -3,7 +3,8 @@ CREATE TABLE IF NOT EXISTS Book(
     title VARCHAR(255) NOT NULL,
     copyright BOOLEAN NOT NULL,
     mediatype VARCHAR(255) NOT NULL,
-    downloadcount INT NOT NULL
+    downloadcount INT NOT NULL,
+    bookId INT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS Author(
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -93,6 +94,20 @@ CREATE TABLE IF NOT EXISTS Format(
     imageJpeg VARCHAR(255),
     applicationOctetStream VARCHAR(255),
     downloadCount INT NOT NULL,
+
+    -- aggiunti dopo
+    applicationPdf VARCHAR(255),
+    applicationMsword VARCHAR(255),
+    applicationPrsTei VARCHAR(255),
+    textHtmlUsAScii VARCHAR(255),
+    textPlain VARCHAR(255),
+    textXRst VARCHAR(255),
+    textHtmlCharsetIso8859 VARCHAR(255),
+    textPlainCharsetIso8859 VARCHAR(255),
+    audioOgg VARCHAR(255),
+    audioMp4 VARCHAR(255),
+    audioMpeg VARCHAR(255),
+    applicationPrsTex VARCHAR(255),
     book_id INT,
     CONSTRAINT fk_Book_Format FOREIGN KEY (book_id) REFERENCES Book(id) ON DELETE CASCADE
 );

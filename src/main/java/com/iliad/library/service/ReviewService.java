@@ -9,7 +9,6 @@ import com.iliad.library.entity.Format;
 import com.iliad.library.entity.Person;
 import com.iliad.library.entity.Review;
 import com.iliad.library.exception.NotExistingReviewException;
-import com.iliad.library.mapper.BookMapper;
 import com.iliad.library.mapper.FormatMapper;
 import com.iliad.library.mapper.PersonMapper;
 import com.iliad.library.mapper.ReviewMapper;
@@ -33,8 +32,7 @@ public class ReviewService {
     private final ReviewMapper reviewMapper;
     private final BookService bookService;
     private final RabbitTemplate rabbitTemplate;
-    private static Long lastBookId = 0l;
-    private final BookMapper bookMapper;
+    //private static Long lastBookId = 0l;
     private final JdbcTemplate jdbcTemplate;
     private final PersonMapper personMapper;
     private final FormatMapper formatMapper;
@@ -74,40 +72,49 @@ public class ReviewService {
 
         // Guardo sul db se esiste già il libro a cui voglio fare la recensione
         List<Review> reviews = new ArrayList<>(0);
-        String sql = "SELECT * FROM Book,Review WHERE Book.id=Review.book_id AND Review.bookId = "+saved.getBookId();
+        String sql = "SELECT * FROM Book WHERE bookId = "+saved.getBookId();
         reviews = jdbcTemplate.query(sql,new BeanPropertyRowMapper(Review.class));
 
         // se il libro esiste già...
         if(!reviews.isEmpty()){ // aggiorno soltanto il campo STATUS (gli altri dati di arricchimento per questo libro sono già presenti)
-            Long lastBookIdSaved = reviews.get(reviews.size()-1).getBookId();
+            // prelevo l'id del libro già esistente e lo uso per settare la chiave esterna della review
+            sql = "SELECT id FROM Book WHERE bookId = "+saved.getBookId();
+            Long bookId = jdbcTemplate.queryForObject(sql, Long.class);
 
             // inserisco soltanto la review con il riferimento (lastBookIdSaved) al libro già esistente
             sql = "INSERT INTO Review (bookId, review, score, status, book_id) VALUES (?,?,?,?,?)";
-            jdbcTemplate.update(sql, saved.getBookId(), saved.getReview(), saved.getScore(), "COMPLETED",lastBookIdSaved);
+            jdbcTemplate.update(sql, saved.getBookId(), saved.getReview(), saved.getScore(), "COMPLETED",bookId);
 
             // 0ttengo l'id della Review appena inserita per restituirlo al controller
-            lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
-            saved.setId(lastBookId);
+            //lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+            sql = "SELECT id FROM Review WHERE bookId = "+saved.getBookId();
+            Long reviewId = jdbcTemplate.queryForObject(sql, Long.class);
+
+            saved.setId(reviewId);
         }
         else{   // Altrimenti creo il libro e la Review di base
             // Creo il libro (necessario per creare la Review)
             sql = "INSERT INTO Book (title, copyright, mediaType, " +
-                    "downloadCount) VALUES (?,?,?,?)";
+                    "downloadCount, bookId) VALUES (?,?,?,?,?)";
             jdbcTemplate.update(sql, reviewbook.getTitle(), reviewbook.getCopyright(),
-                    reviewbook.getMediaType(), reviewbook.getDownloadCount()
+                    reviewbook.getMediaType(), reviewbook.getDownloadCount(), saved.getBookId()
             );
 
-            // 0ttengo l'id del libro appena inserito
-            lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+            //  ottengo l'id del libro appena creato da impostare come chiave esterna nella Review
+            sql = "SELECT id FROM Book WHERE bookId = "+saved.getBookId();
+            Long bookId = jdbcTemplate.queryForObject(sql, Long.class);
+
+//            // 0ttengo l'id del libro appena inserito
+//            lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
 
             // salvo la review con il campo status=COMPLETED
             Review lastReview = reviewbook.getReviews().get(reviewbook.getReviews().size()-1);
             sql = "INSERT INTO Review (bookId, review, score, status, book_id) VALUES (?,?,?,?,?)";
-            jdbcTemplate.update(sql, lastReview.getBookId(), lastReview.getReview(), lastReview.getScore(), "COMPLETED",lastBookId);
+            jdbcTemplate.update(sql, lastReview.getBookId(), lastReview.getReview(), lastReview.getScore(), "COMPLETED",bookId);
 
-            // 0ttengo l'id della Review appena inserita per valorizzare l'id della Review da mostrare nella response
-            lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
-            saved.setId(lastBookId);
+//            // 0ttengo l'id della Review appena inserita per valorizzare l'id della Review da mostrare nella response
+//            lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+//            saved.setId(lastBookId);
 
             rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY, reviewbook);
         }
@@ -118,15 +125,26 @@ public class ReviewService {
     @RabbitListener(queues = RabbitMQConfig.QUEUE_NAME)
     public void reviewBookInsertReview(Book reviewbook) {
 
+        // prelevo l'id del libro appena creato
+        String sql = "SELECT id FROM Book WHERE bookId = "+reviewbook.getId();
+        Long bookId = jdbcTemplate.queryForObject(sql, Long.class);
+
         // Inserimento formats relativi al Book
         Format formats = reviewbook.getFormats();
-        String sql = "INSERT INTO Format (textHtml, applicationEpubZip, applicationMobiPocket" +
+        sql = "INSERT INTO Format (textHtml, applicationEpubZip, applicationMobiPocket" +
                 ", textPlainAscii, textPlainUtf8, textHtmlCharsetUtf8, applicationRdfXml" +
-                ", imageJpeg, applicationOctetStream, downloadCount, book_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+                ", imageJpeg, applicationOctetStream, downloadCount, " +
+                " " +
+                "applicationPdf, applicationMsword, applicationPrsTei," +
+                " textHtmlUsAScii, textPlain, textXRst, textHtmlCharsetIso8859, textPlainCharsetIso8859, " +
+                " audioOgg, audioMp4, audioMpeg, applicationPrsTex ,book_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         jdbcTemplate.update(sql, formats.getTextHtml(), formats.getApplicationEpubZip(), formats.getApplicationMobiPocket(),
                 formats.getTextPlainAscii(), formats.getTextPlainUtf8(), formats.getTextHtmlCharsetUtf8(),
                 formats.getApplicationRdfXml(), formats.getImageJpeg(), formats.getApplicationOctetStream()
-                ,formats.getDownloadCount(), lastBookId);
+                ,formats.getDownloadCount(),formats.getApplicationPdf(), formats.getApplicationMsword(),
+                formats.getApplicationPrsTei(), formats.getTextHtmlUsAScii(), formats.getTextPlain(), formats.getTextXRst(), formats.getTextHtmlCharsetIso8859(),
+                formats.getTextPlainCharsetIso8859(), formats.getAudioOgg(), formats.getAudioMp4(), formats.getAudioMpeg(),
+                formats.getApplicationPrsTex(), bookId);
 
         // Inserimento authors
         List<Person> authors = reviewbook.getAuthors();
@@ -137,7 +155,7 @@ public class ReviewService {
 
             // Aggiungo i riferimenti nella tabella BookAuthor
             sql = "INSERT INTO BookAuthor (book_id, author_id) VALUES (?,?)";
-            jdbcTemplate.update(sql, lastBookId, lastAuthorId);
+            jdbcTemplate.update(sql, bookId, lastAuthorId);
         }
 
         // Inserimento summaries
@@ -148,7 +166,7 @@ public class ReviewService {
             public void setValues(PreparedStatement ps, int i) throws SQLException {
                 String summary = summaries.get(i);
                 ps.setString(1, summary);
-                ps.setLong(2, lastBookId);          // --> DA SISTEMARE COME L'ALTRO
+                ps.setLong(2, bookId);          // --> DA SISTEMARE COME L'ALTRO
             }
 
             @Override
@@ -166,7 +184,7 @@ public class ReviewService {
 
             // Aggiungo i riferimenti nella tabella BookAuthor
             sql = "INSERT INTO BookEditor (book_id, editor_id) VALUES (?,?)";
-            jdbcTemplate.update(sql, lastBookId, lastEditorId);
+            jdbcTemplate.update(sql, bookId, lastEditorId);
         }
 
         // Inserimento translators
@@ -178,7 +196,7 @@ public class ReviewService {
 
             // Aggiungo i riferimenti nella tabella BookAuthor
             sql = "INSERT INTO BookTranslator (book_id, translator_id) VALUES (?,?)";
-            jdbcTemplate.update(sql, lastBookId, lastAuthorId);
+            jdbcTemplate.update(sql, bookId, lastAuthorId);
         }
 
         //  Inserimento subjects
@@ -189,7 +207,7 @@ public class ReviewService {
             public void setValues(PreparedStatement ps, int i) throws SQLException {
                 String subject = subjects.get(i);
                 ps.setString(1, subject);
-                ps.setLong(2, lastBookId);
+                ps.setLong(2, bookId);
             }
 
             @Override
@@ -207,7 +225,7 @@ public class ReviewService {
 
             // Aggiungo i riferimenti nella tabella BookAuthor
             sql = "INSERT INTO BookBookshelf (book_id, bookshelf_id) VALUES (?,?)";
-            jdbcTemplate.update(sql, lastBookId, lastBookShelfId);
+            jdbcTemplate.update(sql, bookId, lastBookShelfId);
         }
 
         // Inserimento languages
@@ -219,7 +237,7 @@ public class ReviewService {
 
             // Aggiungo i riferimenti nella tabella BookAuthor
             sql = "INSERT INTO BookLanguage (book_id, language_id) VALUES (?,?)";
-            jdbcTemplate.update(sql, lastBookId, lastLanguageId);
+            jdbcTemplate.update(sql, bookId, lastLanguageId);
         }
     }
 
@@ -300,13 +318,15 @@ public class ReviewService {
         return bookDTOReview;
     }
 
-    public void deleteReview(Long id) {
+    public int deleteReview(Long id) {
         String sql = "DELETE FROM Review WHERE id="+id;
-        jdbcTemplate.update(sql);
+        int check = jdbcTemplate.update(sql); // cancellato = 1, non cancellato = 0
+        return check;
     }
 
-    public void updateReview(Review review) {
+    public int updateReview(Review review) {
         String sql = "UPDATE Review SET review = ?, score = ? WHERE id = ?";
-        jdbcTemplate.update(sql, review.getReview(), review.getScore(), review.getBookId());
+        int check = jdbcTemplate.update(sql, review.getReview(), review.getScore(), review.getBookId());
+        return check;
     }
 }

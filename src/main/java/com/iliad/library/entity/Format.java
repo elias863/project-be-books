@@ -21,4 +21,18 @@ public class Format {
     private String imageJpeg;
     private String applicationOctetStream;
     private int downloadCount;
+
+    // Formati aggiunti dopo (potrebbero esisterne altri)
+    private String applicationPdf;
+    private String applicationMsword;
+    private String applicationPrsTei;
+    private String textHtmlUsAScii;
+    private String textPlain;
+    private String textXRst;
+    private String textHtmlCharsetIso8859;
+    private String textPlainCharsetIso8859;
+    private String audioOgg;
+    private String audioMp4;
+    private String audioMpeg;
+    private String applicationPrsTex;
 }

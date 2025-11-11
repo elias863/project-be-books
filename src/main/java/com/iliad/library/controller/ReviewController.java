@@ -38,13 +38,23 @@ public class ReviewController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteReview(@PathVariable Long id) throws Exception {
-        reviewService.deleteReview(id);
-        return ResponseEntity.status(200).build();
+        int deleted = reviewService.deleteReview(id);
+
+        // se la cancellazione ha avuto successo
+        if(deleted == 1)
+            return ResponseEntity.status(200).build();
+        else
+            return ResponseEntity.status(204).build();
     }
 
     @PutMapping()
     public ResponseEntity<?> updateReview(@RequestBody ReviewDTO review) throws Exception {
-        reviewService.updateReview(reviewMapper.toEntity(review));
-        return ResponseEntity.status(200).build();
+        int updated = reviewService.updateReview(reviewMapper.toEntity(review));
+
+        // se l'aggiornamento ha avuto successo
+        if(updated == 1)
+            return ResponseEntity.status(200).build();
+        else
+            return ResponseEntity.status(204).build();
     }
 }

@@ -8,6 +8,7 @@ import java.util.List;
 @Data
 public class BookDTO {
     private Long id;
+    private int bookId;
     private String title;
     private List<PersonDTO> authors;
     private List<String> summaries;
