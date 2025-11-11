@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS Book(
     copyright BOOLEAN NOT NULL,
     mediatype VARCHAR(255) NOT NULL,
     downloadcount INT NOT NULL
-);-- ENGINE=INNODB CHARACTER SET utf8 COLLATE utf8_unicode_ci; aggiugnere se da errore nella codifica
+);
 CREATE TABLE IF NOT EXISTS Author(
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS Review(
     score INT NOT NULL,
     status VARCHAR(50),
     book_id INT,
-    CONSTRAINT fk_Book_Review FOREIGN KEY (book_id) REFERENCES Book(id)
+    CONSTRAINT fk_Book_Review FOREIGN KEY (book_id) REFERENCES Book(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 CREATE TABLE IF NOT EXISTS Editor(
     id INT AUTO_INCREMENT PRIMARY KEY,
