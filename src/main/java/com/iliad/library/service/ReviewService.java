@@ -104,9 +104,6 @@ public class ReviewService {
             sql = "SELECT id FROM Book WHERE bookId = "+saved.getBookId();
             Long bookId = jdbcTemplate.queryForObject(sql, Long.class);
 
-//            // 0ttengo l'id del libro appena inserito
-//            lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
-
             // salvo la review con il campo status=COMPLETED
             Review lastReview = reviewbook.getReviews().get(reviewbook.getReviews().size()-1);
             sql = "INSERT INTO Review (bookId, review, score, status, book_id) VALUES (?,?,?,?,?)";
