@@ -5,6 +5,7 @@ import com.iliad.library.dto.ReviewDTO;
 import com.iliad.library.mapper.ReviewMapper;
 import com.iliad.library.service.ReviewService;
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,7 +19,18 @@ public class ReviewController {
 
     @PostMapping
     public ResponseEntity<ReviewDTO> createReview(@RequestBody ReviewDTO review) throws Exception {
-        return ResponseEntity.status(200).body(reviewService.createReview(review)); // ------------->>>>>>> cambiare i valori di output
+
+        ReviewDTO reviewDTO = new ReviewDTO();
+        try{
+            reviewDTO = reviewService.createReview(review);
+        }catch (Exception e){
+            reviewDTO.setId(0l);
+            reviewDTO.setReview("ERRORE: "+e.getMessage());
+            reviewDTO.setScore(0);
+            return ResponseEntity.status(404).body(reviewDTO);
+        }
+
+        return ResponseEntity.status(200).body(reviewDTO);
     }
 
     @GetMapping("/{id}")

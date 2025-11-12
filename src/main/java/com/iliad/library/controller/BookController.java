@@ -28,9 +28,4 @@ public class BookController {
     public List<BookDTOSearch> getBooksSearch(@RequestParam(name="q") String q) throws JsonProcessingException {
         return bookService.getBooksSearch(q);
     }
-
-    @GetMapping("/test")
-    public String test(){
-        return "test";
-    }
 }

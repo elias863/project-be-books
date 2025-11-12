@@ -46,26 +46,34 @@ public class BookMapper {
         entity.setSummaries(dto.getSummaries());
 
         // mappo gli editors
-        List<Person> editors = new ArrayList<>(0);
-        for(PersonDTO t:dto.getEditors()){
-            Person editor = new Person();
-            editor.setName(t.getName());
-            editor.setBirthYear(t.getBirthYear());
-            editor.setDeathYear(t.getDeathYear());
-            editors.add(editor);
+        if(dto.getEditors()!=null){
+            List<Person> editors = new ArrayList<>(0);
+            for(PersonDTO t:dto.getEditors()){
+                Person editor = new Person();
+                editor.setName(t.getName());
+                editor.setBirthYear(t.getBirthYear());
+                editor.setDeathYear(t.getDeathYear());
+                editors.add(editor);
+            }
+            entity.setEditors(editors);
         }
-        entity.setEditors(editors);
+            else
+                entity.setEditors(new ArrayList<>(0));
 
         // mappo i translators
-        List<Person> translators = new ArrayList<>(0);
-        for(PersonDTO t:dto.getTranslators()){
-            Person translator = new Person();
-            translator.setName(t.getName());
-            translator.setBirthYear(t.getBirthYear());
-            translator.setDeathYear(t.getDeathYear());
-            translators.add(translator);
+        if(dto.getTranslators()!=null){
+            List<Person> translators = new ArrayList<>(0);
+            for(PersonDTO t:dto.getTranslators()){
+                Person translator = new Person();
+                translator.setName(t.getName());
+                translator.setBirthYear(t.getBirthYear());
+                translator.setDeathYear(t.getDeathYear());
+                translators.add(translator);
+            }
+            entity.setTranslators(translators);
         }
-        entity.setTranslators(translators);
+        else
+            entity.setTranslators(new ArrayList<>(0));
 
         // mappo i subjects
         entity.setSubjects(dto.getSubjects());

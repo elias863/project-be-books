@@ -8,7 +8,6 @@ import com.iliad.library.entity.Book;
 import com.iliad.library.entity.Format;
 import com.iliad.library.entity.Person;
 import com.iliad.library.entity.Review;
-import com.iliad.library.exception.NotExistingReviewException;
 import com.iliad.library.mapper.FormatMapper;
 import com.iliad.library.mapper.PersonMapper;
 import com.iliad.library.mapper.ReviewMapper;
@@ -18,9 +17,11 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,19 +33,20 @@ public class ReviewService {
     private final ReviewMapper reviewMapper;
     private final BookService bookService;
     private final RabbitTemplate rabbitTemplate;
-    //private static Long lastBookId = 0l;
     private final JdbcTemplate jdbcTemplate;
     private final PersonMapper personMapper;
     private final FormatMapper formatMapper;
 
     public ReviewDTO createReview(ReviewDTO reviewDTO) throws Exception {
 
-        // prendo il libro a cui si riferisce la review
-        Book reviewbook = bookService.getBookById(reviewDTO.getId());
+        // controllo che l'id matchi con l'API (se non esiste lancia un'eccezione)
+        Book reviewbook = new Book();
 
-        // controllo che l'id matchi con l'API
-        if(reviewbook.getId()==null)
-            throw new Exception("Non esiste un libro con id: "+reviewDTO.getId());
+        try {
+            reviewbook = bookService.getBookById(reviewDTO.getId());
+        }catch (Exception e){   // se non esiste un libro con l'id scelto, lancia un eccezione al controller
+            throw new Exception("Non esiste un libro con id = "+reviewDTO.getId());
+        }
 
         // controllo che la review sia di almeno 30 caratteri
         if(reviewDTO.getReview().length() < 30)
@@ -86,9 +88,7 @@ public class ReviewService {
             jdbcTemplate.update(sql, saved.getBookId(), saved.getReview(), saved.getScore(), "COMPLETED",bookId);
 
             // 0ttengo l'id della Review appena inserita per restituirlo al controller
-            //lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
-            sql = "SELECT id FROM Review WHERE bookId = "+saved.getBookId();
-            Long reviewId = jdbcTemplate.queryForObject(sql, Long.class);
+            Long reviewId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
 
             saved.setId(reviewId);
         }
@@ -112,9 +112,9 @@ public class ReviewService {
             sql = "INSERT INTO Review (bookId, review, score, status, book_id) VALUES (?,?,?,?,?)";
             jdbcTemplate.update(sql, lastReview.getBookId(), lastReview.getReview(), lastReview.getScore(), "COMPLETED",bookId);
 
-//            // 0ttengo l'id della Review appena inserita per valorizzare l'id della Review da mostrare nella response
-//            lastBookId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
-//            saved.setId(lastBookId);
+            // 0ttengo l'id della Review appena inserita per restituirlo al controller
+            Long reviewId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+            saved.setId(reviewId);
 
             rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY, reviewbook);
         }
@@ -244,18 +244,26 @@ public class ReviewService {
     // Ottengo tutte le review di un dato BookId preso in input
     public BookDTOReview getReview(Long id) throws Exception {
 
-        // Prelevo la Review (semplice)
-        String sql = "SELECT * FROM Review WHERE id = "+id;
-        Review fromDB = new Review();
-        try{
-            fromDB = (Review) jdbcTemplate.queryForObject(
-                    sql,
-                    new Object[]{id},
-                    new BeanPropertyRowMapper(Review.class));
-        }
-        catch (Exception e){
-            throw new NotExistingReviewException();  // rimanda l'eccezione al controller (che la gestisce)
-        }
+        // Prelevo tutte le review dal DB (in realtà è solo una) e la salvo in fromDB
+        List<Review> reviewList = jdbcTemplate.query(
+                "SELECT * FROM Review WHERE id = "+id,
+                new Object[]{},
+                new RowMapper() {
+                    public Object mapRow(ResultSet rs, int rowNum) throws SQLException {
+                        Review review = new Review();
+
+                        review.setId(rs.getLong("id"));
+                        review.setReview(rs.getString("review"));
+                        review.setScore(rs.getInt("score"));
+                        review.setStatus(rs.getString("status"));
+                        review.setBookId(rs.getLong("bookId"));
+
+                        return review;
+                    }
+                }
+        );
+
+        Review fromDB = reviewList.get(0);
 
         // L'arricchimento della review è uguale per tutte dato che si riferiscono allo stesso libro
         Book enrichedData = bookService.getBookById(fromDB.getBookId());

@@ -33,9 +33,6 @@ public class FormatDTO {
     @JsonProperty("application/octet-stream")
     private String applicationOctetStream;
 
-    @JsonProperty("download_count")
-    private int downloadCount;
-
     @JsonProperty("application/pdf")
     private String applicationPdf;
 
@@ -71,4 +68,7 @@ public class FormatDTO {
 
     @JsonProperty("application/prs.tex")
     private String applicationPrsTex;
+
+    @JsonProperty("download_count")
+    private int downloadCount;
 }

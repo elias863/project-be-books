@@ -9,6 +9,7 @@ public class ReviewMapper {
 
     public Review toEntity(ReviewDTO dto){
         Review entity = new Review();
+        entity.setId(dto.getId());
         entity.setBookId(dto.getId());
         entity.setReview(dto.getReview());
         entity.setScore(dto.getScore());
@@ -18,6 +19,7 @@ public class ReviewMapper {
     public ReviewDTO toDto(Review entity){
         ReviewDTO dto = new ReviewDTO();
         dto.setId(entity.getId());
+        dto.setBookId(entity.getBookId());
         dto.setReview(entity.getReview());
         dto.setScore(entity.getScore());
         dto.setStatus(entity.getStatus());

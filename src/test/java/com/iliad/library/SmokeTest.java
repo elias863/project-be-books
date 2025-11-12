@@ -18,6 +18,10 @@ public class SmokeTest {
     private ReviewController reviewController;
 
     @Test
+    void contextLoads() {
+    }
+
+    @Test
     void contextLoadsBook() throws Exception {
         assertThat(bookController).isNotNull();
     }
